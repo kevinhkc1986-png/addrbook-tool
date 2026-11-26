@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<!-- 禁止任何網路連線：本檔不載入外部資源、不送出資料 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>通訊錄搜尋工具</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2530; --muted:#667085; --line:#e3e6eb; --accent:#1f6feb; --warn:#b54708; --warnbg:#fff6ed; --demo:#7a2e98; --demobg:#f8f0fc; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--card); border-bottom:1px solid var(--line); padding:14px 20px; }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:4px 0 0; font-size:13px; color:var(--muted); }
+  main { max-width:960px; margin:0 auto; padding:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:14px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  button, .filebtn { font:inherit; font-size:14px; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; }
+  .primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  input[type=file] { display:none; }
+  #q { width:100%; font:inherit; font-size:18px; padding:12px 14px; border:2px solid var(--line); border-radius:10px; }
+  #q:focus { outline:none; border-color:var(--accent); }
+  #q:disabled { background:#f0f1f3; }
+  .meta { font-size:13px; color:var(--muted); line-height:1.7; }
+  .meta b { color:var(--ink); font-weight:600; }
+  .notice { font-size:13px; padding:10px 12px; border-radius:8px; background:var(--warnbg); color:var(--warn); margin-top:10px; }
+  .demo-banner { display:none; font-weight:700; text-align:center; padding:8px; border-radius:8px; background:var(--demobg); color:var(--demo); margin-bottom:10px; letter-spacing:2px; }
+  .status { font-size:14px; color:var(--muted); margin:10px 2px; min-height:20px; }
+  .results { display:grid; gap:10px; }
+  .person { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .person .name { font-size:17px; font-weight:700; }
+  .person .sub { font-size:13px; color:var(--muted); margin-top:2px; }
+  .person dl { display:grid; grid-template-columns:max-content 1fr; gap:3px 12px; margin:8px 0 0; font-size:14px; }
+  .person dt { color:var(--muted); }
+  .person dd { margin:0; word-break:break-all; }
+  .err { color:#b42318; }
+  main { max-width:1180px; }
+  .results { grid-template-columns:repeat(auto-fill, minmax(380px, 1fr)); gap:16px; }
+  .bcard { position:relative; background:#fff; border-radius:6px; overflow:hidden; box-shadow:0 1px 3px rgba(16,24,40,.12), 0 4px 12px rgba(16,24,40,.06); padding:20px 22px 18px 30px; min-height:228px; display:flex; flex-direction:column; }
+  .bcard::before { content:""; position:absolute; left:0; top:0; bottom:0; width:7px; background:linear-gradient(180deg,#2a3b6b,#5a6fa8); }
+  .bcard::after { content:""; position:absolute; right:0; top:0; width:120px; height:84px; opacity:.5;
+    background:
+      linear-gradient(#e7e9ee,#e7e9ee) 72px 0/24px 24px no-repeat,
+      linear-gradient(#eef0f4,#eef0f4) 96px 24px/24px 24px no-repeat,
+      linear-gradient(#e7e9ee,#e7e9ee) 48px 24px/24px 24px no-repeat,
+      linear-gradient(#eef0f4,#eef0f4) 72px 48px/24px 24px no-repeat,
+      linear-gradient(#f3f4f7,#f3f4f7) 24px 48px/24px 24px no-repeat; }
+  .bcard .top { position:relative; z-index:1; padding-bottom:12px; border-bottom:1px solid #e4e7ec; margin-bottom:12px; }
+  .bcard .titleline { font-size:13px; color:#475467; letter-spacing:1px; min-height:18px; display:flex; gap:8px; align-items:center; }
+  .bcard .tag { font-size:11px; letter-spacing:0; padding:1px 7px; border-radius:10px; background:#f4ebff; color:#6941c6; }
+  .bcard .nameline { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 16px; margin-top:4px; }
+  .bcard .name { font-size:28px; font-weight:600; letter-spacing:3px; color:#1d2530; }
+  .bcard .mobile { font-size:17px; letter-spacing:1px; color:#344054; }
+  .bcard a { color:inherit; text-decoration:none; }
+  .bcard a:hover { color:var(--accent); text-decoration:underline; }
+  .bcard .info { font-size:13.5px; color:#344054; line-height:1.75; }
+  .bcard .place { font-weight:600; color:#1d2530; margin-bottom:2px; }
+  .bcard .line { display:flex; }
+  .bcard .lb { flex:none; color:#667085; }
+  .bcard .v { word-break:break-all; }
+  .bcard .note { font-size:12px; color:#667085; margin-top:4px; }
+  @media (max-width:440px) { .results { grid-template-columns:1fr; } }
+  header { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; padding:10px 20px; }
+  header .hnote { font-size:12.5px; color:#b42318; font-weight:600; }
+  #main { display:flex; flex-direction:column; }
+  #main.nodata .datapanel { order:-1; margin:8px 0 14px; }
+  .searchbar { position:sticky; top:0; z-index:5; background:var(--bg); padding:8px 0 2px; }
+  .datapanel { margin-top:28px; padding:0; }
+  .datapanel summary { cursor:pointer; padding:12px 16px; font-size:13.5px; color:var(--muted); list-style:none; }
+  .datapanel summary::-webkit-details-marker { display:none; }
+  .datapanel summary::before { content:"▸ "; }
+  .datapanel[open] summary::before { content:"▾ "; }
+  #main.nodata .datapanel summary { color:var(--accent); font-weight:600; font-size:15px; }
+  .datapanel .panelbody { padding:0 16px 16px; }
+  .datapanel .privacy { font-size:12px; color:var(--muted); margin-top:10px; }
+  .bcard .callbar { display:none; gap:8px; flex-wrap:wrap; margin-top:12px; padding-top:12px; border-top:1px dashed #e4e7ec; }
+  .bcard .act { display:flex; flex:1 1 140px; border:1px solid #d0d5dd; border-radius:10px; overflow:hidden; }
+  .bcard .actbtn { flex:1; text-align:center; padding:11px 8px; font-size:15px; font-weight:600; color:#1f6feb !important; white-space:nowrap; background:#f5f8ff; text-decoration:none !important; }
+  .bcard .copybtn { flex:none; border:0; border-left:1px solid #d0d5dd; border-radius:0; background:#fff; font-size:13px; color:#475467; padding:0 12px; }
+  @media (hover:none), (max-width:600px) { .bcard .callbar { display:flex; } }
+  .bcard .neartag { background:#fef0c7; color:#93370d; }
+  .bcard.near::before { background:linear-gradient(180deg,#b54708,#f79009); }
+  @media (max-width:600px) {
+    header { padding:8px 14px; }
+    main { padding:10px; }
+    #q { font-size:17px; padding:10px 12px; }
+    .bcard { padding:16px 16px 14px 22px; min-height:0; }
+    .bcard .name { font-size:24px; letter-spacing:2px; }
+    .bcard .mobile { font-size:16px; }
+    .bcard .info { font-size:14px; }
+    .bcard::after { width:72px; height:48px; transform:scale(.6); transform-origin:top right; }
+  }
+  footer { font-size:12px; color:var(--muted); text-align:center; padding:20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>通訊錄搜尋工具</h1>
+  <span class="hnote" style="color:#475467;font-weight:400">只顯示公務聯絡資訊；資料只在你的瀏覽器裡，關閉視窗即清除。</span>
+</header>
+<main id="main">
+  <div class="searchbar">
+    <input id="q" type="search" placeholder="輸入姓名、單位、職稱或電話（可用空白分隔多個關鍵字）" autocomplete="off" disabled>
+    <div class="status" id="status"></div>
+  </div>
+  <div class="results" id="results"></div>
+
+  <details class="card datapanel" id="dataPanel" open>
+  <summary id="dataSummary">尚未載入通訊錄，點這裡選擇 Excel</summary>
+  <div class="panelbody">
+    <div class="demo-banner" id="demoBanner">示意資料（假資料，非真實人員）</div>
+    <div class="row">
+      <label class="filebtn primary" for="file">選擇通訊錄 Excel（.xlsx / .csv）</label>
+      <input type="file" id="file" accept=".xlsx,.csv">
+      <button id="demo" type="button">載入示意資料</button>
+      <button id="clear" type="button">清除資料</button>
+    </div>
+    <input type="checkbox" id="remember" hidden>
+    <div class="meta" id="meta" style="margin-top:10px">尚未載入資料。請先從公司系統下載最新版通訊錄，再在這裡選擇檔案。</div>
+    <div class="notice" id="hidden" style="display:none"></div>
+    <div class="privacy">請用自己的公司帳號下載最新版通訊錄後選取。Excel 只在這個瀏覽器裡讀取，不上傳、不保存；關閉或重新整理視窗即清除。手機、私人信箱等欄位不會讀入。</div>
+  </div>
+  </details>
+</main>
+<footer>請勿轉傳通訊錄 Excel；檔案保管請依公司資料使用規定辦理。</footer>
+
+<script>
+"use strict";
+/* ============================================================
+   管理者設定區（欄位政策）
+   - 只有符合 ALLOW 的欄位會被讀進記憶體，其他欄位在讀檔當下就丟棄。
+   - BLOCK 優先於 ALLOW（例如「公司手機」含「手機」→ 隱藏）。
+   - 若資訊部門核准新增欄位，修改這裡即可。
+   ============================================================ */
+/* 個人模式：true = 顯示 Excel 中所有有標題的欄位（含手機、私人信箱），不做欄位過濾與內容檢查 */
+const PERSONAL_MODE = false; // 場區版：只顯示核准欄位
+
+const FIELD_POLICY = {
+  BLOCK: /手機|行動|私人|個人|住址|地址|住家|家用|身分|身份|生日|出生|緊急|聯絡人|配偶|血型|line|mobile|cell|personal|private|address|birth/i,
+  ALLOW: [
+    { key: "name",  label: "姓名", re: /姓名|名字|中文名|英文名|^name$|full ?name/i },
+    { key: "unit",  label: "單位", re: /單位|部門|廠區|場區|廠別|處|課|組|公司|dept|department|unit/i },
+    { key: "title", label: "職稱", re: /職稱|職務|職位|title|position/i },
+    { key: "cat",   label: "類別", re: /類別|身分別|人員別/i },
+    { key: "phone", label: "電話", re: /電話|分機|公務|傳真|tel|phone|ext|fax/i },
+    { key: "email", label: "信箱", re: /信箱|郵件|e-?mail|mail/i },
+  ],
+  // 內容檢查：電話類欄位若超過此比例是手機號碼，整欄視為手機而隱藏
+  MOBILE_RATIO: 0.3,
+  // 信箱只顯示公司網域；其他網域（Gmail 等個人信箱）逐格不讀入
+  COMPANY_EMAIL_DOMAINS: ["mfw.com.tw"],
+};
+const MOBILE_RE = /09\d{2}[-\s]?\d{3}[-\s]?\d{3}/;
+function isCompanyEmail(v) {
+  const m = /@([\w.\-]+)\s*$/.exec(String(v).trim());
+  if (!m) return false;
+  const d = m[1].toLowerCase();
+  return FIELD_POLICY.COMPANY_EMAIL_DOMAINS.some((c) => d === c || d.endsWith("." + c));
+}
+const MAX_RESULTS = 30;     // 單次最多顯示筆數
+const HEADER_SCAN_ROWS = 15; // 在前幾列中尋找標題列
+
+/* ---------------- 狀態（只在記憶體） ---------------- */
+let records = [];   // [{fields:[{label,value}], name, sub, key, digits}]
+
+const $ = (id) => document.getElementById(id);
+
+/* ---------------- 欄位分類 ---------------- */
+function classifyHeader(h) {
+  const t = String(h || "").normalize("NFKC").replace(/\s+/g, "");
+  if (!t) return null;
+  if (PERSONAL_MODE) {
+    if (/手機|行動|mobile|cell/i.test(t)) return { key: "phone", label: "手機" };
+    if (/信箱|郵件|e-?mail|mail/i.test(t)) return FIELD_POLICY.ALLOW.find((f) => f.key === "email");
+    for (const f of FIELD_POLICY.ALLOW) if (f.re.test(t)) return f;
+    return { key: "other", label: t };
+  }
+  if (FIELD_POLICY.BLOCK.test(t)) return null;
+  for (const f of FIELD_POLICY.ALLOW) if (f.re.test(t)) return f;
+  return null;
+}
+
+/* ---------------- 迷你 ZIP 讀取器（.xlsx 是 zip） ---------------- */
+async function unzip(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf);
+  let eocd = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65557); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("不是有效的 .xlsx 檔（找不到 zip 目錄）");
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const entries = {};
+  const dec = new TextDecoder("utf-8");
+  for (let n = 0; n < count; n++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error("zip 目錄格式錯誤");
+    const method = dv.getUint16(p + 10, true);
+    const csize = dv.getUint32(p + 20, true);
+    const nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+    const lho = dv.getUint32(p + 42, true);
+    const name = dec.decode(u8.subarray(p + 46, p + 46 + nlen));
+    entries[name] = { method, csize, lho };
+    p += 46 + nlen + xlen + clen;
+  }
+  async function read(name) {
+    const e = entries[name];
+    if (!e) return null;
+    const l = e.lho;
+    if (dv.getUint32(l, true) !== 0x04034b50) throw new Error("zip 檔頭錯誤");
+    const start = l + 30 + dv.getUint16(l + 26, true) + dv.getUint16(l + 28, true);
+    const data = u8.subarray(start, start + e.csize);
+    if (e.method === 0) return dec.decode(data);
+    if (e.method !== 8) throw new Error("不支援的壓縮方式");
+    const ds = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return await new Response(ds).text();
+  }
+  return { names: Object.keys(entries), read };
+}
+
+/* ---------------- .xlsx 解析 ---------------- */
+const parseXML = (s) => new DOMParser().parseFromString(s, "application/xml");
+const byTag = (node, tag) => Array.from(node.getElementsByTagNameNS("*", tag));
+
+function colIndex(ref) {
+  const m = /^([A-Z]+)/.exec(ref || "");
+  if (!m) return -1;
+  let n = 0;
+  for (const ch of m[1]) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n - 1;
+}
+function textOf(node) { // 串接 <t>，排除注音/拼音 <rPh>
+  let s = "";
+  for (const t of byTag(node, "t")) {
+    let a = t.parentNode, skip = false;
+    while (a && a !== node) { if (a.localName === "rPh") { skip = true; break; } a = a.parentNode; }
+    if (!skip) s += t.textContent;
+  }
+  return s;
+}
+function resolvePath(target) {
+  if (target.startsWith("/")) return target.slice(1);
+  const parts = ("xl/" + target).split("/"), out = [];
+  for (const p of parts) { if (p === "..") out.pop(); else if (p && p !== ".") out.push(p); }
+  return out.join("/");
+}
+
+async function readXlsx(buf) {
+  const z = await unzip(buf);
+  const sst = [];
+  const sstXml = await z.read("xl/sharedStrings.xml");
+  if (sstXml) for (const si of byTag(parseXML(sstXml), "si")) sst.push(textOf(si));
+
+  const rels = {};
+  const relXml = await z.read("xl/_rels/workbook.xml.rels");
+  if (relXml) for (const r of byTag(parseXML(relXml), "Relationship")) rels[r.getAttribute("Id")] = r.getAttribute("Target");
+
+  const wb = parseXML(await z.read("xl/workbook.xml") || "<x/>");
+  const sheets = [];
+  for (const s of byTag(wb, "sheet")) {
+    const rid = s.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id") || s.getAttribute("r:id");
+    const target = rels[rid];
+    if (!target) continue;
+    const xml = await z.read(resolvePath(target));
+    if (!xml) continue;
+    const rows = [];
+    for (const row of byTag(parseXML(xml), "row")) {
+      const arr = [];
+      let auto = 0;
+      for (const c of byTag(row, "c")) {
+        let ci = colIndex(c.getAttribute("r"));
+        if (ci < 0) ci = auto;
+        auto = ci + 1;
+        const t = c.getAttribute("t");
+        let v;
+        if (t === "s") { const vv = byTag(c, "v")[0]; v = vv ? (sst[+vv.textContent] ?? "") : ""; }
+        else if (t === "inlineStr") { const is = byTag(c, "is")[0]; v = is ? textOf(is) : ""; }
+        else { const vv = byTag(c, "v")[0]; v = vv ? vv.textContent : ""; }
+        arr[ci] = v;
+      }
+      rows.push(arr);
+    }
+    sheets.push({ name: s.getAttribute("name") || "工作表", rows });
+  }
+  return sheets;
+}
+
+/* ---------------- CSV 解析 ---------------- */
+function decodeCsv(buf) {
+  const u = new TextDecoder("utf-8").decode(buf);
+  if (!u.includes("\uFFFD")) return u.replace(/^\uFEFF/, "");
+  try { return new TextDecoder("big5").decode(buf); } catch { return u; }
+}
+function parseCsv(text) {
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) {
+      if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; }
+      else f += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ",") { row.push(f); f = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(f); rows.push(row); row = []; f = "";
+    } else f += ch;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  return [{ name: "CSV", rows }];
+}
+
+/* ---------------- 轉成可搜尋紀錄（只保留核准欄位） ---------------- */
+const norm = (s) => String(s ?? "").normalize("NFKC").toLowerCase().replace(/\s+/g, "");
+const digitsOnly = (s) => String(s ?? "").normalize("NFKC").replace(/\D+/g, "");
+
+/* 區塊抬頭列（例：「A松江辦公室｜Tel：(02)2100-2393 Fax：(02)2567-7118 104台北市…」）
+   無姓名、但含 Tel／電話／總機 的列，視為底下人員共用的據點資訊 */
+const SECTION_RE = /tel|電話|總機|代表號/i;
+function parseSection(cells) {
+  const texts = cells.filter((v) => v != null && String(v).trim() !== "").map((v) => String(v).normalize("NFKC").replace(/\s+/g, " ").trim());
+  const line = texts.join("　");
+  const info = { raw: line, place: "", tel: "", fax: "", addr: "", note: "" };
+  const telCell = texts.find((t) => SECTION_RE.test(t)) || "";
+  info.place = texts.filter((t) => t !== telCell).join(" ");
+  let rest = telCell;
+  // 傳真：號碼只取數字、括號、連字號
+  const fax = /(?:fax|傳真)\s*[:：]\s*([0-9()\-]+(?:\s[0-9()\-]+)*?)(?=\s+\d{3,6}[一-鿿]|\s+\D|\s*$)/i.exec(rest);
+  if (fax) { info.fax = fax[1].trim(); rest = rest.replace(fax[0], " "); }
+  // 市話：關鍵字加冒號之後，到下一個關鍵字或郵遞區號地址之前
+  const tel = /(?:tel|電話|總機)\s*[:：]\s*(.+?)(?=\s+\d{3,6}[一-鿿]|\s+[一-鿿]{2,}[:：]|$)/i.exec(rest);
+  if (tel && /\d{6,}/.test(tel[1].replace(/\D/g, ""))) { info.tel = tel[1].trim().replace(/[、,]\s*$/, ""); rest = rest.replace(tel[0], " "); }
+  // 地址：郵遞區號開頭到結尾
+  const addr = /\d{3,6}[一-鿿].*?號(?:[\d\-~之]*樓)?(?:之\d+)?/.exec(rest) || /\d{3,6}[一-鿿].*$/.exec(rest);
+  if (addr) { info.addr = addr[0].trim(); rest = rest.replace(addr[0], " "); }
+  info.note = rest.replace(/\s+/g, " ").trim();
+  return info;
+}
+
+function buildRecords(sheets) {
+  const out = [], hiddenCols = new Set(), skipped = [];
+  let droppedEmail = 0, droppedMobile = 0, sections = 0, sectionsWithTel = 0;
+  const sheetsUsed = new Set();
+  for (const sh of sheets) {
+    let hIdx = -1;
+    for (let r = 0; r < Math.min(HEADER_SCAN_ROWS, sh.rows.length); r++) {
+      const row = sh.rows[r] || [];
+      if (row.some((h) => { const f = classifyHeader(h); return f && f.key === "name"; })) { hIdx = r; break; }
+    }
+    if (hIdx < 0) {
+      // 只有「看起來像人員資料」的工作表才提醒（至少 10 列、每列 3 格以上有值）；選單選項等小表不提醒
+      const dataRows = sh.rows.filter((r) => r && r.filter((v) => v != null && String(v).trim() !== "").length >= 3).length;
+      if (dataRows >= 10) skipped.push(sh.name);
+      continue;
+    }
+    const header = sh.rows[hIdx];
+    const cols = [];
+    for (let i = 0; i < header.length; i++) {
+      const h = header[i];
+      if (h == null || String(h).trim() === "") continue;
+      const f = classifyHeader(h);
+      if (f) cols.push({ i, label: String(h).trim(), key: f.key });
+      else hiddenCols.add(String(h).trim());
+    }
+    // 內容檢查：電話類欄位若多數是手機號碼 → 整欄隱藏
+    for (let k = cols.length - 1; k >= 0; k--) {
+      const c = cols[k];
+      if (PERSONAL_MODE || c.key !== "phone") continue;
+      let n = 0, mob = 0;
+      for (let r = hIdx + 1; r < sh.rows.length; r++) {
+        const v = (sh.rows[r] || [])[c.i];
+        if (v == null || String(v).trim() === "") continue;
+        n++; if (MOBILE_RE.test(String(v).normalize("NFKC"))) mob++;
+      }
+      if (n && mob / n > FIELD_POLICY.MOBILE_RATIO) { hiddenCols.add(`${c.label}（內容多為手機號碼）`); cols.splice(k, 1); }
+    }
+    let section = null;
+    for (let r = hIdx + 1; r < sh.rows.length; r++) {
+      const row = sh.rows[r] || [];
+      const nameCol = cols.find((c) => c.key === "name");
+      const hasName = nameCol && row[nameCol.i] != null && String(row[nameCol.i]).trim() !== "";
+      if (!hasName) {
+        const joined = row.filter((v) => v != null).join(" ");
+        if (SECTION_RE.test(joined)) { section = parseSection(row); sections++; if (section.tel) sectionsWithTel++; }
+        continue;
+      }
+      const fields = [];
+      for (const c of cols) {
+        const v = row[c.i];
+        if (v == null || String(v).trim() === "") continue;
+        const s = String(v).trim();
+        if (!PERSONAL_MODE && c.key === "email" && !isCompanyEmail(s)) { droppedEmail++; continue; }
+        if (!PERSONAL_MODE && c.key === "phone" && MOBILE_RE.test(s.normalize("NFKC"))) { droppedMobile++; continue; }
+        fields.push({ key: c.key, label: c.label, value: s });
+      }
+      const nameF = fields.find((f) => f.key === "name");
+      if (!nameF) continue;
+      sheetsUsed.add(sh.name);
+      out.push({ sheet: sh.name, nameF, fields, section });
+    }
+  }
+  const multi = sheetsUsed.size > 1;
+  // 場區版：據點抬頭也套用同樣規則（移除手機號碼、非公司信箱）
+  const MOB_G = /09\d{2}[-\s]?\d{3}[-\s]?\d{3}/g;
+  const scrub = (t) => String(t || "")
+    .replace(MOB_G, "")
+    .replace(/[\w.+\-]+@[\w.\-]+/g, (m) => (isCompanyEmail(m) ? m : ""))
+    .replace(/[、,，/]\s*(?=[、,，/]|$)/g, "").replace(/^[\s、,，/]+|[\s、,，/]+$/g, "").replace(/\s{2,}/g, " ").trim();
+  const sanitize = (sec) => {
+    if (PERSONAL_MODE || !sec) return sec;
+    const out2 = { ...sec, tel: scrub(sec.tel), fax: scrub(sec.fax), note: scrub(sec.note), raw: scrub(sec.raw), addr: sec.addr };
+    if (!/\d{6,}/.test(out2.tel.replace(/\D/g, ""))) out2.tel = "";
+    out2.note = out2.note.replace(/\S{1,8}[:：]\s*(?=\S{1,8}[:：]|$)/g, "").trim(); // 去掉內容被移除後只剩標籤的「公用信箱:」
+    if (/^[\s:：]*$/.test(out2.note)) out2.note = "";
+    return out2;
+  };
+  const recs = out.map(({ sheet, nameF, fields, section: rawSection }) => {
+    const section = sanitize(rawSection);
+    const ext = fields.find((f) => f.key === "phone" && /分機|ext/i.test(f.label));
+    const extra = [];
+    if (section) {
+      if (section.tel) extra.push({ key: "phone", label: "市話", value: section.tel + (ext ? `　分機 ${ext.value}` : ""), section: true });
+      if (section.place) extra.push({ key: "sec", label: "據點", value: section.place, section: true });
+      if (section.fax) extra.push({ key: "phone", label: "傳真", value: section.fax, section: true });
+      if (section.addr) extra.push({ key: "sec", label: "地址", value: section.addr, section: true });
+      if (section.note) extra.push({ key: "sec", label: "備註", value: section.note, section: true });
+      if (!section.tel && !section.fax && !section.addr && !section.note && section.raw) extra.push({ key: "sec", label: "據點資訊", value: section.raw, section: true });
+    }
+    fields = extra.concat(fields);
+    const subParts = ["unit", "title", "cat"].flatMap((k) => fields.filter((f) => f.key === k).map((f) => f.value));
+    if (multi) subParts.unshift(sheet);
+    const all = fields.map((f) => f.value).join(" ") + (multi ? " " + sheet : "");
+    const vals = (pred) => fields.filter(pred).map((f) => f.value);
+    const extVals = vals((f) => f.key === "phone" && !f.section && /分機|ext/i.test(f.label));
+    const card = {
+      title: vals((f) => f.key === "title").join("／"),
+      unit: vals((f) => f.key === "unit").join(" "),
+      cat: vals((f) => f.key === "cat").join(" "),
+      mobile: vals((f) => f.key === "phone" && !f.section && !/分機|ext|傳真|fax/i.test(f.label) && MOBILE_RE.test(f.value.normalize("NFKC"))),
+      direct: vals((f) => f.key === "phone" && !f.section && !/分機|ext|傳真|fax/i.test(f.label) && !MOBILE_RE.test(f.value.normalize("NFKC"))),
+      ext: extVals.join("、"),
+      tel: section && section.tel ? section.tel : "",
+      fax: section && section.fax ? section.fax : "",
+      addr: section && section.addr ? section.addr : "",
+      note: section ? (section.note || (!section.tel && !section.fax && !section.addr ? section.raw : "")) : "",
+      emails: vals((f) => f.key === "email"),
+      others: fields.filter((f) => f.key === "other" && !f.section).map((f) => [f.label, f.value]),
+      sheet: multi ? sheet : "",
+    };
+    return {
+      card,
+      name: nameF.value,
+      sub: subParts.join("・"),
+      fields: fields.filter((f) => f !== nameF && f.key !== "unit" && f.key !== "title" && f.key !== "cat"),
+      key: norm(all),
+      digits: fields.filter((f) => f.key === "phone").map((f) => digitsOnly(f.value)).join(" "),
+    };
+  });
+  return { out: recs, hiddenCols: [...hiddenCols], skipped, droppedEmail, droppedMobile, sections, sectionsWithTel };
+}
+
+/* ---------------- 搜尋與顯示（只用 textContent，不用 innerHTML） ---------------- */
+/* 搜尋：先完全比對（部分文字），找不到再模糊比對姓名
+   模糊 1：不連續字依序出現在姓名中（例「陳如」→ 陳姵如）
+   模糊 2：三字以上、同長度、只差一個字（例「陳佩如」→ 陳姵如） */
+const HAS_CJK = /[㐀-鿿]/;
+function isSubsequence(t, s) {
+  let i = 0;
+  for (const ch of s) { if (ch === t[i]) i++; if (i === t.length) return true; }
+  return false;
+}
+function oneCharOff(t, s) {
+  const a = [...t], b = [...s];
+  if (a.length < 3 || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i] && ++diff > 1) return false;
+  return diff === 1;
+}
+function matchLevel(r, t) { // 0 = 完全符合，1 = 相近，-1 = 不符
+  const nt = norm(t), dt = digitsOnly(t);
+  if (r.key.includes(nt)) return 0;
+  if (dt.length >= 3 && dt.length === nt.replace(/[-()#]/g, "").length && r.digits.includes(dt)) return 0;
+  if (!HAS_CJK.test(nt) || [...nt].length < 2) return -1;
+  const name = r.nameKey || (r.nameKey = norm(String(r.name).replace(/[（(][^）)]*[）)]/g, "")));
+  if (isSubsequence([...nt], name) || oneCharOff(nt, name)) return 1;
+  return -1;
+}
+function search(q) {
+  const tokens = String(q).normalize("NFKC").trim().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return null;
+  const exact = [], near = [];
+  for (const r of records) {
+    let lv = 0;
+    for (const t of tokens) { const m = matchLevel(r, t); if (m < 0) { lv = -1; break; } lv = Math.max(lv, m); }
+    if (lv === 0) exact.push(r); else if (lv === 1) near.push(r);
+  }
+  const out = exact.map((r) => ({ r, near: false })).concat(near.map((r) => ({ r, near: true })));
+  out.nearCount = near.length;
+  return out;
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function link(text, href) { // 只允許 tel: 與 mailto:
+  const a = el("a", null, text);
+  if (/^(tel|mailto):/.test(href)) a.href = href;
+  return a;
+}
+function infoLine(label, ...parts) {
+  const row = el("div", "line");
+  row.append(el("span", "lb", label + "："));
+  const v = el("span", "v");
+  for (const p of parts) v.append(typeof p === "string" ? document.createTextNode(p) : p);
+  row.append(v);
+  return row;
+}
+function renderCard(r, isNear) {
+  const c = r.card || {};
+  const card = el("article", "bcard" + (isNear ? " near" : ""));
+  // 上半：職稱／姓名＋手機
+  const top = el("div", "top");
+  const tl = el("div", "titleline");
+  if (c.title) tl.append(el("span", "title", c.title));
+  if (c.cat && c.cat !== "員工") tl.append(el("span", "tag", c.cat));
+  if (isNear) tl.append(el("span", "tag neartag", "相近"));
+  top.append(tl);
+  const nl = el("div", "nameline");
+  nl.append(el("span", "name", r.name));
+  for (const m of c.mobile || []) { const t = link(m, "tel:" + m.replace(/[^\d+]/g, "")); t.classList.add("mobile"); nl.append(t); }
+  top.append(nl);
+  card.append(top);
+  // 下半：據點、地址、電話分機、傳真、Email
+  const info = el("div", "info");
+  const place = [c.sheet, c.unit].filter(Boolean).join(" ");
+  if (place) info.append(el("div", "place", place));
+  if (c.addr) info.append(infoLine("地址", c.addr));
+  if (c.tel || c.ext) {
+    const parts = [];
+    if (c.tel) parts.push(c.tel);
+    if (c.ext) parts.push((c.tel ? "　" : "") + "分機：" + c.ext);
+    info.append(infoLine(c.tel ? "電話" : "分機", ...(c.tel ? parts : ["" + c.ext])));
+  }
+  for (const d of c.direct || []) info.append(infoLine("直撥", d));
+  if (c.fax) info.append(infoLine("傳真", c.fax));
+  (c.emails || []).forEach((m, i) => info.append(infoLine(i === 0 ? "Email" : "Email 2", link(m, "mailto:" + m))));
+  for (const [k, v] of c.others || []) info.append(infoLine(k, v));
+  if (c.note) info.append(el("div", "note", c.note));
+  card.append(info);
+  // 手機用：撥打／寄信按鈕（每顆旁邊附「複製」備援）
+  const acts = [];
+  for (const m of c.mobile || []) acts.push({ icon: "📱", text: "撥手機", href: "tel:" + m.replace(/[^\d+]/g, ""), copy: m });
+  const firstTel = (/[0-9(][0-9()\-\s]{6,}[0-9]/.exec(c.tel || "") || [""])[0];
+  if (firstTel) {
+    const d = firstTel.replace(/\D/g, "");
+    const ext = (/\d+/.exec(c.ext || "") || [""])[0];
+    acts.push({ icon: "☎️", text: ext ? `撥分機 ${ext}` : "撥市話", href: "tel:" + d + (ext ? "," + ext : ""), copy: firstTel.trim() + (ext ? ` 分機 ${ext}` : "") });
+  }
+  const mail = (c.emails || []).find((m) => /@mfw\.com\.tw$/i.test(m)) || (c.emails || [])[0];
+  if (mail) acts.push({ icon: "✉️", text: "寄信", href: "mailto:" + mail, copy: mail });
+  if (acts.length) {
+    const bar = el("div", "callbar");
+    for (const a of acts) {
+      const g = el("div", "act");
+      const btn = link(`${a.icon} ${a.text}`, a.href); btn.className = "actbtn";
+      const cp = el("button", "copybtn", "複製"); cp.type = "button";
+      cp.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(a.copy); cp.textContent = "已複製"; }
+        catch { cp.textContent = "無法複製"; }
+        setTimeout(() => (cp.textContent = "複製"), 1500);
+      });
+      g.append(btn, cp); bar.append(g);
+    }
+    card.append(bar);
+  }
+  return card;
+}
+
+function render() {
+  const res = $("results"); res.replaceChildren();
+  const q = $("q").value;
+  const hits = search(q);
+  if (!records.length) { $("status").textContent = "尚未載入通訊錄，請先選擇 Excel 檔。"; return; }
+  if (hits === null) { $("status").textContent = `已載入 ${records.length} 筆，請輸入關鍵字開始搜尋。`; return; }
+  if (!hits.length) { $("status").textContent = "查無符合資料。"; return; }
+  const nearNote = hits.nearCount ? (hits.nearCount === hits.length ? "（皆為相近結果）" : `（其中 ${hits.nearCount} 筆為相近結果）`) : "";
+  $("status").textContent = hits.length > MAX_RESULTS
+    ? `共 ${hits.length} 筆${nearNote}，只顯示前 ${MAX_RESULTS} 筆，請輸入更精確的關鍵字。`
+    : `共 ${hits.length} 筆${nearNote}。`;
+  for (const h of hits.slice(0, MAX_RESULTS)) res.append(renderCard(h.r, h.near));
+}
+
+function fmt(d) {
+  const p = (x) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function setData(built, info, isDemo) {
+  records = built.out;
+  lastInfo = info; remembered = false;
+  $("demoBanner").style.display = isDemo ? "block" : "none";
+  const m = $("meta"); m.replaceChildren();
+  const line = (label, val) => { const d = document.createElement("div"); const b = document.createElement("b"); b.textContent = label + "："; d.append(b, document.createTextNode(val)); m.append(d); };
+  line("檔案", info.name);
+  if (info.modified) line("檔案日期", fmt(info.modified) + "（以檔案最後修改時間為準，請確認是最新版）");
+  line("載入時間", fmt(new Date()));
+  line("筆數", `${records.length} 筆` + (built.sections ? `（據點抬頭 ${built.sections} 個，其中 ${built.sectionsWithTel} 個解析出市話）` : ""));
+  const h = $("hidden");
+  const msgs = [];
+  if (built.hiddenCols.length) msgs.push(`以下欄位依公司欄位政策未讀入、不會顯示：${built.hiddenCols.join("、")}`);
+  if (built.droppedEmail) msgs.push(`已略過 ${built.droppedEmail} 個非公司網域信箱（例如個人 Gmail）`);
+  if (built.droppedMobile) msgs.push(`已略過 ${built.droppedMobile} 個手機號碼格式的電話`);
+  if (built.skipped.length) msgs.push(`以下工作表找不到「姓名」標題列，已略過：${built.skipped.join("、")}`);
+  h.textContent = msgs.join("\n"); h.style.whiteSpace = "pre-line";
+  h.style.display = msgs.length ? "block" : "none";
+  $("q").disabled = !records.length;
+  $("q").value = "";
+  updateSummary();
+  if (records.length) $("q").focus();
+  else { const e = document.createElement("div"); e.className = "err"; e.textContent = "沒有讀到任何人員資料，請確認檔案內有「姓名」欄位。"; m.append(e); }
+  render();
+}
+
+/* ---------------- 本機記憶（IndexedDB，只存在這台電腦的這個瀏覽器） ---------------- */
+function idb() {
+  return new Promise((res, rej) => {
+    let rq;
+    try { rq = indexedDB.open("addrbook-personal", 1); } catch (e) { return rej(e); }
+    rq.onupgradeneeded = () => rq.result.createObjectStore("cache");
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+async function cacheOp(mode, fn) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("cache", mode), st = tx.objectStore("cache");
+    const rq = fn(st);
+    tx.oncomplete = () => { db.close(); res(rq && rq.result); };
+    tx.onerror = () => { db.close(); rej(tx.error); };
+  });
+}
+const saveCache = (v) => cacheOp("readwrite", (st) => st.put(v, "current"));
+const loadCache = () => cacheOp("readonly", (st) => st.get("current"));
+const dropCache = () => cacheOp("readwrite", (st) => st.delete("current"));
+
+let lastInfo = null, remembered = false;
+function updateSummary() {
+  const sum = $("dataSummary");
+  if (records.length && lastInfo) {
+    const parts = [`資料來源：${lastInfo.name}`, `${records.length} 筆`];
+    if (lastInfo.modified) parts.push(`檔案日期 ${fmt(new Date(lastInfo.modified))}`);
+    parts.push(remembered ? "已記住於本機" : "未記住");
+    sum.textContent = parts.join("・") + "　（點此更新或清除）";
+  } else sum.textContent = "尚未載入通訊錄，點這裡選擇 Excel";
+  $("main").classList.toggle("nodata", !records.length);
+  $("dataPanel").open = !records.length;
+}
+
+function clearData(keepCache) {
+  records = [];
+  $("file").value = "";
+  $("q").value = ""; $("q").disabled = true;
+  $("demoBanner").style.display = "none";
+  $("hidden").style.display = "none";
+  $("meta").textContent = "資料已清除。";
+  lastInfo = null; remembered = false; updateSummary();
+  if (keepCache !== true) dropCache().catch(() => {});
+  render();
+}
+
+$("file").addEventListener("change", async (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  clearData(true);
+  $("meta").textContent = "讀取中…";
+  try {
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith(".xls")) throw new Error("不支援舊版 .xls，請在 Excel 另存為 .xlsx 後再選擇。");
+    const buf = await file.arrayBuffer();
+    const sheets = lower.endsWith(".csv") ? parseCsv(decodeCsv(buf)) : await readXlsx(buf);
+    const built = buildRecords(sheets);
+    const info = { name: file.name, modified: file.lastModified ? new Date(file.lastModified) : null };
+    setData(built, info, false);
+    if ($("remember").checked && built.out.length) {
+      saveCache({ v: 2, built, info, savedAt: new Date() })
+        .then(() => { remembered = true; updateSummary(); note(`已記住，下次打開會自動載入（儲存時間 ${fmt(new Date())}）`); })
+        .catch(() => note("這個瀏覽器無法記住資料，下次仍需重新選擇檔案。"));
+    }
+  } catch (e) {
+    clearData(true);
+    const d = document.createElement("div"); d.className = "err"; d.textContent = "讀取失敗：" + (e && e.message ? e.message : e);
+    $("meta").replaceChildren(d);
+  }
+  $("file").value = ""; // 不保留檔案參照
+});
+
+$("demo").addEventListener("click", () => {
+  const rows = [
+    ["示意通訊錄（假資料）"],
+    ["姓名", "單位", "職稱", "公務電話", "分機", "公務信箱", "手機", "私人信箱"],
+    ["", "示意A廠", "Tel：(06)000-0000 Fax：(06)000-0009 700000示意市示意區示意路1號"],
+    ["王小明（示意）", "示意A廠 操作課", "操作員", "06-000-0001", "101", "demo.a@example.com", "0900-000-001", "x@example.net"],
+    ["陳美華（示意）", "示意A廠 化驗室", "化驗員", "06-000-0002", "102", "demo.b@example.com", "0900-000-002", ""],
+    ["", "示意B廠", "Tel：(07)000-0000 Fax：(07)000-0009 800000示意市示意區示意路2號"],
+    ["林志強（示意）", "示意B廠 機電課", "課長", "06-000-0003", "201", "demo.c@example.com", "0900-000-003", ""],
+    ["張雅婷（示意）", "示意B廠 行政組", "專員", "06-000-0004", "202", "demo.d@example.com", "", ""],
+    ["", "示意總部", "Tel：(02)0000-0000 800000示意市示意區示意路3號 撥網路電話：按4再按800#"],
+    ["黃建國（示意）", "示意總部 工程處", "工程師", "02-0000-0005", "301", "demo.e@example.com", "0900-000-005", ""],
+  ];
+  setData(buildRecords([{ name: "示意", rows }]), { name: "示意資料（假資料）", modified: null }, true);
+});
+
+$("clear").addEventListener("click", () => clearData(false));
+
+function note(msg) {
+  const d = document.createElement("div"); d.style.color = "#067647"; d.textContent = msg; $("meta").append(d);
+}
+// 開啟時自動載入上次記住的通訊錄
+updateSummary(); render();
+Promise.resolve(null).then((c) => { // 場區版不讀取任何保存資料
+  if (!c || !c.built || records.length) return;
+  if (c.v !== 2) { $("meta").textContent = "工具已更新為名片版面，請重新選擇一次通訊錄 Excel。"; return; }
+  setData(c.built, c.info, false);
+  remembered = true; updateSummary();
+  note(`已自動載入上次記住的通訊錄（記住時間 ${fmt(new Date(c.savedAt))}）。通訊錄有更新時，請重新選擇新版 Excel。`);
+}).catch(() => {});
+$("q").addEventListener("input", render);
+</script>
+</body>
+</html>
