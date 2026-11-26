@@ -75,15 +75,15 @@
   #main.nodata .datapanel summary { color:var(--accent); font-weight:600; font-size:15px; }
   .datapanel .panelbody { padding:0 16px 16px; }
   .datapanel .privacy { font-size:12px; color:var(--muted); margin-top:10px; }
-  .bcard .callbar { display:none; gap:8px; flex-wrap:wrap; margin-top:12px; padding-top:12px; border-top:1px dashed #e4e7ec; }
-  .bcard .act { display:flex; flex:1 1 140px; border:1px solid #d0d5dd; border-radius:10px; overflow:hidden; }
-  .bcard .actbtn { flex:1; text-align:center; padding:11px 8px; font-size:15px; font-weight:600; color:#1f6feb !important; white-space:nowrap; background:#f5f8ff; text-decoration:none !important; }
-  .bcard .copybtn { flex:none; border:0; border-left:1px solid #d0d5dd; border-radius:0; background:#fff; font-size:13px; color:#475467; padding:0 12px; }
-  @media (hover:none), (max-width:600px) { .bcard .callbar { display:flex; } }
-  .bcard .sharebar { display:flex; gap:8px; margin-top:10px; }
-  .bcard .linebtn { flex:1; text-align:center; padding:9px 8px; border-radius:10px; background:#06c755; color:#fff !important; font-weight:700; font-size:14px; text-decoration:none !important; }
-  .bcard .linebtn:hover { background:#05b14c; }
-  .bcard .copycard { flex:none; font-size:13px; padding:0 14px; border-radius:10px; border:1px solid #d0d5dd; background:#fff; color:#475467; }
+  .bcard .actbar { display:flex; gap:8px; margin-top:12px; padding-top:12px; border-top:1px dashed #e4e7ec; }
+  .bcard .abtn { flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px; border:1px solid #d0d5dd; border-radius:10px; background:#fff; color:#1f6feb !important; font:inherit; font-size:12.5px; font-weight:600; text-decoration:none !important; cursor:pointer; white-space:nowrap; }
+  .bcard .abtn svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .bcard .abtn span { overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .bcard .abtn:hover { background:#f5f8ff; }
+  .bcard .abtn.line { background:#06c755; border-color:#06c755; color:#fff !important; }
+  .bcard .abtn.line svg { fill:#fff; stroke:none; }
+  .bcard .abtn.callonly { display:none; }
+  @media (hover:none), (max-width:600px) { .bcard .abtn.callonly { display:flex; } }
   .bcard .neartag { background:#fef0c7; color:#93370d; }
   .bcard.near::before { background:linear-gradient(180deg,#b54708,#f79009); }
   @media (max-width:600px) {
@@ -539,33 +539,7 @@ function renderCard(r, isNear) {
   for (const [k, v] of c.others || []) info.append(infoLine(k, v));
   if (c.note) info.append(el("div", "note", c.note));
   card.append(info);
-  // 手機用：撥打／寄信按鈕（每顆旁邊附「複製」備援）
-  const acts = [];
-  for (const m of c.mobile || []) acts.push({ icon: "📱", text: "撥手機", href: "tel:" + m.replace(/[^\d+]/g, ""), copy: m });
-  const firstTel = (/[0-9(][0-9()\-\s]{6,}[0-9]/.exec(c.tel || "") || [""])[0];
-  if (firstTel) {
-    const d = firstTel.replace(/\D/g, "");
-    const ext = (/\d+/.exec(c.ext || "") || [""])[0];
-    acts.push({ icon: "☎️", text: ext ? `撥分機 ${ext}` : "撥市話", href: "tel:" + d + (ext ? "," + ext : ""), copy: firstTel.trim() + (ext ? ` 分機 ${ext}` : "") });
-  }
-  const mail = (c.emails || []).find((m) => /@mfw\.com\.tw$/i.test(m)) || (c.emails || [])[0];
-  if (mail) acts.push({ icon: "✉️", text: "寄信", href: "mailto:" + mail, copy: mail });
-  if (acts.length) {
-    const bar = el("div", "callbar");
-    for (const a of acts) {
-      const g = el("div", "act");
-      const btn = link(`${a.icon} ${a.text}`, a.href); btn.className = "actbtn";
-      const cp = el("button", "copybtn", "複製"); cp.type = "button";
-      cp.addEventListener("click", async () => {
-        try { await navigator.clipboard.writeText(a.copy); cp.textContent = "已複製"; }
-        catch { cp.textContent = "無法複製"; }
-        setTimeout(() => (cp.textContent = "複製"), 1500);
-      });
-      g.append(btn, cp); bar.append(g);
-    }
-    card.append(bar);
-  }
-  // 分享名片：LINE（直接開 LINE 選聊天室）＋複製文字
+  // 動作列：一排圖示按鈕（撥手機、撥分機、寄信、LINE、複製名片）
   const lines = ["【名片】", r.name + (c.title ? "　" + c.title : "")];
   const place2 = [c.sheet, c.unit].filter(Boolean).join(" ");
   if (place2) lines.push(place2);
@@ -577,17 +551,38 @@ function renderCard(r, isNear) {
   (c.emails || []).forEach((m) => lines.push("Email：" + m));
   if (c.addr) lines.push("地址：" + c.addr);
   const cardText = lines.join("\n");
-  const sb = el("div", "sharebar");
-  const lineBtn = link("LINE 分享", "https://line.me/R/share?text=" + encodeURIComponent(cardText));
-  lineBtn.className = "linebtn"; lineBtn.target = "_blank"; lineBtn.rel = "noopener";
-  const cpCard = el("button", "copycard", "複製名片"); cpCard.type = "button";
-  cpCard.addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(cardText); cpCard.textContent = "已複製"; }
-    catch { cpCard.textContent = "無法複製"; }
-    setTimeout(() => (cpCard.textContent = "複製名片"), 1500);
+  const ICON = {
+    mobile: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+    phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    line: '<path d="M12 4C6.5 4 2 7.6 2 12c0 3.9 3.5 7.2 8.3 7.9L12 22l1.7-2.1C18.5 19.2 22 15.9 22 12c0-4.4-4.5-8-10-8z"/>',
+    copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/>',
+  };
+  const svg = (k) => { const n = document.createElementNS("http://www.w3.org/2000/svg", "svg"); n.setAttribute("viewBox", "0 0 24 24"); n.setAttribute("aria-hidden", "true"); n.innerHTML = ICON[k]; return n; };
+  const bar = el("div", "actbar");
+  const add = (k, label, href, cls) => {
+    const a = href ? link("", href) : el("button", null); if (!href) a.type = "button";
+    a.className = "abtn " + (cls || ""); a.append(svg(k), el("span", null, label)); bar.append(a); return a;
+  };
+  const mob = (c.mobile || [])[0];
+  if (mob) add("mobile", "手機", "tel:" + mob.replace(/[^\d+]/g, ""), "callonly");
+  const firstTel = (/[0-9(][0-9()\-\s]{6,}[0-9]/.exec(c.tel || "") || [""])[0];
+  if (firstTel) {
+    const ext = (/\d+/.exec(c.ext || "") || [""])[0];
+    add("phone", ext ? "分機 " + ext : "市話", "tel:" + firstTel.replace(/\D/g, "") + (ext ? "," + ext : ""), "callonly");
+  }
+  const mail = (c.emails || []).find((m) => /@mfw\.com\.tw$/i.test(m)) || (c.emails || [])[0];
+  if (mail) add("mail", "寄信", "mailto:" + mail);
+  const lb = add("line", "LINE", "https://line.me/R/share?text=" + encodeURIComponent(cardText), "line");
+  lb.target = "_blank"; lb.rel = "noopener";
+  const cp = add("copy", "複製", null);
+  cp.addEventListener("click", async () => {
+    const sp = cp.querySelector("span");
+    try { await navigator.clipboard.writeText(cardText); sp.textContent = "已複製"; }
+    catch { sp.textContent = "失敗"; }
+    setTimeout(() => (sp.textContent = "複製"), 1500);
   });
-  sb.append(lineBtn, cpCard);
-  card.append(sb);
+  card.append(bar);
   return card;
 }
 
