@@ -98,7 +98,7 @@
 <body>
 <header>
   <h1>通訊錄搜尋工具</h1>
-  <span class="hnote" style="color:#475467;font-weight:400">只顯示公務聯絡資訊；資料只在你的瀏覽器裡，關閉視窗即清除。</span>
+  <span class="hnote" style="color:#475467;font-weight:400">只顯示公務聯絡資訊；資料只在你的瀏覽器裡，不上傳。</span>
 </header>
 <main id="main">
   <div class="searchbar">
@@ -117,10 +117,10 @@
       <button id="demo" type="button">載入示意資料</button>
       <button id="clear" type="button">清除資料</button>
     </div>
-    <input type="checkbox" id="remember" hidden>
+    <label style="display:block;margin-top:10px;font-size:14px"><input type="checkbox" id="remember" checked> 記住這份通訊錄（下次打開自動載入；公用電腦請取消勾選，或用完按「清除資料」）</label>
     <div class="meta" id="meta" style="margin-top:10px">尚未載入資料。請先從公司系統下載最新版通訊錄，再在這裡選擇檔案。</div>
     <div class="notice" id="hidden" style="display:none"></div>
-    <div class="privacy">請用自己的公司帳號下載最新版通訊錄後選取。Excel 只在這個瀏覽器裡讀取，不上傳、不保存；關閉或重新整理視窗即清除。手機、私人信箱等欄位不會讀入。</div>
+    <div class="privacy">請用自己的公司帳號下載最新版通訊錄後選取。Excel 只在這個瀏覽器裡讀取，不上傳；勾選「記住」時只保存公務欄位在這台裝置的瀏覽器裡，未勾選則關閉視窗即清除。手機、私人信箱等欄位不會讀入。</div>
   </div>
   </details>
 </main>
@@ -628,7 +628,7 @@ function setData(built, info, isDemo) {
 function idb() {
   return new Promise((res, rej) => {
     let rq;
-    try { rq = indexedDB.open("addrbook-personal", 1); } catch (e) { return rej(e); }
+    try { rq = indexedDB.open("addrbook-field", 1) /* 與個人版分開存放 */; } catch (e) { return rej(e); }
     rq.onupgradeneeded = () => rq.result.createObjectStore("cache");
     rq.onsuccess = () => res(rq.result);
     rq.onerror = () => rej(rq.error);
@@ -721,7 +721,7 @@ function note(msg) {
 }
 // 開啟時自動載入上次記住的通訊錄
 updateSummary(); render();
-Promise.resolve(null).then((c) => { // 場區版不讀取任何保存資料
+loadCache().then((c) => {
   if (!c || !c.built || records.length) return;
   if (c.v !== 2) { $("meta").textContent = "工具已更新為名片版面，請重新選擇一次通訊錄 Excel。"; return; }
   setData(c.built, c.info, false);
