@@ -507,6 +507,55 @@ function infoLine(label, ...parts) {
   row.append(v);
   return row;
 }
+/* 名片圖片：用 canvas 畫出名片，回傳 PNG 的 dataURL（同步，確保分享時仍在使用者點擊動作內） */
+function cardImageDataURL(name, c) {
+  const W = 900, S = 2, PADL = 70, PADR = 50, FONT = '"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif';
+  const cv = document.createElement("canvas"), g = cv.getContext("2d");
+  const rows = [];
+  const place = [c.sheet, c.unit].filter(Boolean).join(" ");
+  if (c.addr) rows.push(["地址", c.addr]);
+  if (c.tel || c.ext) rows.push([c.tel ? "電話" : "分機", c.tel ? c.tel + (c.ext ? "　分機 " + c.ext : "") : c.ext]);
+  for (const d of c.direct || []) rows.push(["直撥", d]);
+  if (c.fax) rows.push(["傳真", c.fax]);
+  (c.emails || []).forEach((m, i) => rows.push([i ? "Email 2" : "Email", m]));
+  const wrap = (text, font, maxW) => {
+    g.font = font; const out = []; let line = "";
+    for (const ch of String(text)) { if (g.measureText(line + ch).width > maxW && line) { out.push(line); line = ch; } else line += ch; }
+    if (line) out.push(line); return out;
+  };
+  const F = { title: `500 26px ${FONT}`, name: `700 56px ${FONT}`, mob: `500 34px ${FONT}`, place: `700 28px ${FONT}`, lb: `400 26px ${FONT}`, v: `400 26px ${FONT}`, note: `400 20px ${FONT}` };
+  // 先量高度
+  g.font = F.lb; const lbW = Math.max(...rows.map(([k]) => g.measureText(k + "：").width), 0);
+  const valW = W - PADL - PADR - lbW;
+  const laid = rows.map(([k, v]) => [k, wrap(v, F.v, valW)]);
+  const mobLines = (c.mobile || []).length ? 1 : 0;
+  let H = 60 + 34 + 70 + (mobLines ? 50 : 0) + 30 + (place ? 50 : 0);
+  laid.forEach(([, ls]) => (H += ls.length * 40 + 6));
+  H += 70;
+  cv.width = W * S; cv.height = H * S; g.scale(S, S);
+  g.fillStyle = "#ffffff"; g.fillRect(0, 0, W, H);
+  const grad = g.createLinearGradient(0, 0, 0, H); grad.addColorStop(0, "#2a3b6b"); grad.addColorStop(1, "#5a6fa8");
+  g.fillStyle = grad; g.fillRect(0, 0, 14, H);
+  g.textBaseline = "top"; let y = 56;
+  g.fillStyle = "#475467"; g.font = F.title; g.fillText([c.title, c.cat && c.cat !== "員工" ? "（" + c.cat + "）" : ""].join(""), PADL, y); y += 40;
+  g.fillStyle = "#1d2530"; g.font = F.name; g.fillText(name, PADL, y); y += 74;
+  if (mobLines) { g.fillStyle = "#344054"; g.font = F.mob; g.fillText(c.mobile.join("　"), PADL, y); y += 50; }
+  g.fillStyle = "#e4e7ec"; g.fillRect(PADL, y + 8, W - PADL - PADR, 2); y += 30;
+  if (place) { g.fillStyle = "#1d2530"; g.font = F.place; g.fillText(place, PADL, y); y += 50; }
+  for (const [k, ls] of laid) {
+    g.fillStyle = "#667085"; g.font = F.lb; g.fillText(k + "：", PADL, y);
+    g.fillStyle = "#1d2530"; g.font = F.v; ls.forEach((l, i) => g.fillText(l, PADL + lbW, y + i * 40));
+    y += ls.length * 40 + 6;
+  }
+  g.fillStyle = "#98a2b3"; g.font = F.note; g.fillText("通訊錄搜尋工具", PADL, H - 46);
+  return cv.toDataURL("image/png");
+}
+function dataURLtoFile(url, filename) {
+  const [head, b64] = url.split(","); const bin = atob(b64); const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new File([u8], filename, { type: head.slice(5, head.indexOf(";")) });
+}
+
 function renderCard(r, isNear) {
   const c = r.card || {};
   const card = el("article", "bcard" + (isNear ? " near" : ""));
@@ -575,6 +624,16 @@ function renderCard(r, isNear) {
   if (mail) add("mail", "寄信", "mailto:" + mail);
   const lb = add("line", "LINE", "https://line.me/R/share?text=" + encodeURIComponent(cardText), "line");
   lb.target = "_blank"; lb.rel = "noopener";
+  // 支援分享檔案的手機：改為分享名片圖片（在分享選單選 LINE）；不支援時維持文字分享
+  lb.addEventListener("click", (ev) => {
+    try {
+      const file = dataURLtoFile(cardImageDataURL(r.name, c), `名片_${r.name.replace(/[\\/:*?"<>|（）()\s]/g, "")}.png`);
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        ev.preventDefault();
+        navigator.share({ files: [file] }).catch(() => {});
+      }
+    } catch (e) { /* 失敗時照原連結分享文字 */ }
+  });
   const cp = add("copy", "複製", null);
   cp.addEventListener("click", async () => {
     const sp = cp.querySelector("span");
