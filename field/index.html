@@ -98,7 +98,7 @@
 <body>
 <header>
   <h1>通訊錄搜尋工具</h1>
-  <span class="hnote" style="color:#475467;font-weight:400">只顯示公務聯絡資訊；資料只在你的瀏覽器裡，不上傳。</span>
+  <span class="hnote">限授權同仁使用：會顯示手機與私人信箱，請勿轉傳網址或通訊錄。</span>
 </header>
 <main id="main">
   <div class="searchbar">
@@ -117,14 +117,14 @@
       <button id="demo" type="button">載入示意資料</button>
       <button id="clear" type="button">清除資料</button>
     </div>
-    <label style="display:block;margin-top:10px;font-size:14px"><input type="checkbox" id="remember" checked> 記住這份通訊錄（下次打開自動載入；公用電腦請取消勾選，或用完按「清除資料」）</label>
+    <label style="display:block;margin-top:10px;font-size:14px"><input type="checkbox" id="remember" checked> 記住這份通訊錄（存在這台電腦的瀏覽器，下次打開自動載入；按「清除資料」才會刪除）</label>
     <div class="meta" id="meta" style="margin-top:10px">尚未載入資料。請先從公司系統下載最新版通訊錄，再在這裡選擇檔案。</div>
     <div class="notice" id="hidden" style="display:none"></div>
-    <div class="privacy">請用自己的公司帳號下載最新版通訊錄後選取。Excel 只在這個瀏覽器裡讀取，不上傳；勾選「記住」時只保存公務欄位在這台裝置的瀏覽器裡，未勾選則關閉視窗即清除。手機、私人信箱等欄位不會讀入。</div>
+    <div class="privacy">Excel 只在這個瀏覽器裡讀取，不上傳；勾選「記住」時資料存在這台裝置的瀏覽器裡，未勾選則關閉視窗即清除。</div>
   </div>
   </details>
 </main>
-<footer>請勿轉傳通訊錄 Excel；檔案保管請依公司資料使用規定辦理。</footer>
+<footer>限授權同仁使用，請勿轉傳網址或通訊錄 Excel。檔案保管請依公司資料使用規定辦理。</footer>
 
 <script>
 "use strict";
@@ -135,7 +135,7 @@
    - 若資訊部門核准新增欄位，修改這裡即可。
    ============================================================ */
 /* 個人模式：true = 顯示 Excel 中所有有標題的欄位（含手機、私人信箱），不做欄位過濾與內容檢查 */
-const PERSONAL_MODE = false; // 場區版：只顯示核准欄位
+const PERSONAL_MODE = true;
 
 const FIELD_POLICY = {
   BLOCK: /手機|行動|私人|個人|住址|地址|住家|家用|身分|身份|生日|出生|緊急|聯絡人|配偶|血型|line|mobile|cell|personal|private|address|birth/i,
@@ -400,22 +400,7 @@ function buildRecords(sheets) {
     }
   }
   const multi = sheetsUsed.size > 1;
-  // 場區版：據點抬頭也套用同樣規則（移除手機號碼、非公司信箱）
-  const MOB_G = /09\d{2}[-\s]?\d{3}[-\s]?\d{3}/g;
-  const scrub = (t) => String(t || "")
-    .replace(MOB_G, "")
-    .replace(/[\w.+\-]+@[\w.\-]+/g, (m) => (isCompanyEmail(m) ? m : ""))
-    .replace(/[、,，/]\s*(?=[、,，/]|$)/g, "").replace(/^[\s、,，/]+|[\s、,，/]+$/g, "").replace(/\s{2,}/g, " ").trim();
-  const sanitize = (sec) => {
-    if (PERSONAL_MODE || !sec) return sec;
-    const out2 = { ...sec, tel: scrub(sec.tel), fax: scrub(sec.fax), note: scrub(sec.note), raw: scrub(sec.raw), addr: sec.addr };
-    if (!/\d{6,}/.test(out2.tel.replace(/\D/g, ""))) out2.tel = "";
-    out2.note = out2.note.replace(/\S{1,8}[:：]\s*(?=\S{1,8}[:：]|$)/g, "").trim(); // 去掉內容被移除後只剩標籤的「公用信箱:」
-    if (/^[\s:：]*$/.test(out2.note)) out2.note = "";
-    return out2;
-  };
-  const recs = out.map(({ sheet, nameF, fields, section: rawSection }) => {
-    const section = sanitize(rawSection);
+  const recs = out.map(({ sheet, nameF, fields, section }) => {
     const ext = fields.find((f) => f.key === "phone" && /分機|ext/i.test(f.label));
     const extra = [];
     if (section) {
@@ -653,7 +638,7 @@ function updateSummary() {
   if (records.length && lastInfo) {
     const parts = [`資料來源：${lastInfo.name}`, `${records.length} 筆`];
     if (lastInfo.modified) parts.push(`檔案日期 ${fmt(new Date(lastInfo.modified))}`);
-    parts.push(remembered ? "已記住於本機" : "未記住");
+    parts.push(remembered ? "已記住於本機" : "未記住（關閉即清除）");
     sum.textContent = parts.join("・") + "　（點此更新或清除）";
   } else sum.textContent = "尚未載入通訊錄，點這裡選擇 Excel";
   $("main").classList.toggle("nodata", !records.length);
