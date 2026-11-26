@@ -80,6 +80,10 @@
   .bcard .actbtn { flex:1; text-align:center; padding:11px 8px; font-size:15px; font-weight:600; color:#1f6feb !important; white-space:nowrap; background:#f5f8ff; text-decoration:none !important; }
   .bcard .copybtn { flex:none; border:0; border-left:1px solid #d0d5dd; border-radius:0; background:#fff; font-size:13px; color:#475467; padding:0 12px; }
   @media (hover:none), (max-width:600px) { .bcard .callbar { display:flex; } }
+  .bcard .sharebar { display:flex; gap:8px; margin-top:10px; }
+  .bcard .linebtn { flex:1; text-align:center; padding:9px 8px; border-radius:10px; background:#06c755; color:#fff !important; font-weight:700; font-size:14px; text-decoration:none !important; }
+  .bcard .linebtn:hover { background:#05b14c; }
+  .bcard .copycard { flex:none; font-size:13px; padding:0 14px; border-radius:10px; border:1px solid #d0d5dd; background:#fff; color:#475467; }
   .bcard .neartag { background:#fef0c7; color:#93370d; }
   .bcard.near::before { background:linear-gradient(180deg,#b54708,#f79009); }
   @media (max-width:600px) {
@@ -502,7 +506,7 @@ function el(tag, cls, text) {
 }
 function link(text, href) { // 只允許 tel: 與 mailto:
   const a = el("a", null, text);
-  if (/^(tel|mailto):/.test(href)) a.href = href;
+  if (/^(tel|mailto):/.test(href) || href.startsWith("https://line.me/R/share?")) a.href = href;
   return a;
 }
 function infoLine(label, ...parts) {
@@ -571,6 +575,29 @@ function renderCard(r, isNear) {
     }
     card.append(bar);
   }
+  // 分享名片：LINE（直接開 LINE 選聊天室）＋複製文字
+  const lines = ["【名片】", r.name + (c.title ? "　" + c.title : "")];
+  const place2 = [c.sheet, c.unit].filter(Boolean).join(" ");
+  if (place2) lines.push(place2);
+  for (const m of c.mobile || []) lines.push("手機：" + m);
+  if (c.tel) lines.push("電話：" + c.tel + (c.ext ? " 分機 " + c.ext : ""));
+  else if (c.ext) lines.push("分機：" + c.ext);
+  for (const d of c.direct || []) lines.push("直撥：" + d);
+  if (c.fax) lines.push("傳真：" + c.fax);
+  (c.emails || []).forEach((m) => lines.push("Email：" + m));
+  if (c.addr) lines.push("地址：" + c.addr);
+  const cardText = lines.join("\n");
+  const sb = el("div", "sharebar");
+  const lineBtn = link("LINE 分享", "https://line.me/R/share?text=" + encodeURIComponent(cardText));
+  lineBtn.className = "linebtn"; lineBtn.target = "_blank"; lineBtn.rel = "noopener";
+  const cpCard = el("button", "copycard", "複製名片"); cpCard.type = "button";
+  cpCard.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(cardText); cpCard.textContent = "已複製"; }
+    catch { cpCard.textContent = "無法複製"; }
+    setTimeout(() => (cpCard.textContent = "複製名片"), 1500);
+  });
+  sb.append(lineBtn, cpCard);
+  card.append(sb);
   return card;
 }
 
