@@ -96,6 +96,16 @@
 </style>
 </head>
 <body>
+<div id="gate" style="position:fixed;inset:0;z-index:99;background:#f4f6fa;display:flex;align-items:center;justify-content:center;padding:20px">
+  <form id="gateForm" style="background:#fff;border:1px solid #e3e6eb;border-radius:14px;padding:28px 24px;width:100%;max-width:340px;box-sizing:border-box;text-align:center">
+    <div style="font-size:20px;font-weight:700;margin-bottom:6px">通訊錄搜尋工具</div>
+    <div style="font-size:14px;color:#667085;margin-bottom:18px">限授權同仁使用，請輸入 4 位數密碼</div>
+    <label for="gatePin" style="position:absolute;left:-9999px">密碼</label>
+    <input id="gatePin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" style="font:inherit;font-size:28px;letter-spacing:12px;text-align:center;width:180px;padding:10px;border:2px solid #d0d5dd;border-radius:10px">
+    <div id="gateMsg" style="min-height:20px;font-size:13px;color:#b42318;margin-top:10px"></div>
+    <button type="submit" style="margin-top:6px;width:100%;padding:12px;font-size:16px;font-weight:600;border:0;border-radius:10px;background:#1f6feb;color:#fff">進入</button>
+  </form>
+</div>
 <header>
   <h1>通訊錄搜尋工具</h1>
   <span class="hnote">限授權同仁使用：會顯示手機與私人信箱，請勿轉傳網址或通訊錄。</span>
@@ -714,6 +724,33 @@ loadCache().then((c) => {
   note(`已自動載入上次記住的通訊錄（記住時間 ${fmt(new Date(c.savedAt))}）。通訊錄有更新時，請重新選擇新版 Excel。`);
 }).catch(() => {});
 $("q").addEventListener("input", render);
+</script>
+<script>
+/* 簡易門檻（非資安控管）：同一裝置輸入一次後記住 */
+(function () {
+  const H = "df7e3b9f473556b419cf9c1bfba8033dc24f1885650a487d68359e5e1fc07cc9", KEY = "addrbook-gate";
+  const gate = document.getElementById("gate");
+  let ok = false;
+  try { ok = localStorage.getItem(KEY) === H; } catch (e) {}
+  if (ok) { gate.remove(); return; }
+  const pin = document.getElementById("gatePin");
+  setTimeout(() => pin.focus(), 50);
+  async function sha(t) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+    return [...new Uint8Array(buf)].map((x) => x.toString(16).padStart(2, "0")).join("");
+  }
+  document.getElementById("gateForm").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if ((await sha("addrbook-gate:" + pin.value)) === H) {
+      try { localStorage.setItem(KEY, H); } catch (e) {}
+      gate.remove();
+      const q = document.getElementById("q"); if (q && !q.disabled) q.focus();
+    } else {
+      document.getElementById("gateMsg").textContent = "密碼不正確";
+      pin.value = ""; pin.focus();
+    }
+  });
+})();
 </script>
 </body>
 </html>
